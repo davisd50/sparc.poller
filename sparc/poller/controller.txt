@@ -1,0 +1,104 @@
+=====================================
+Sparc Poller Runner Controller
+=====================================
+A Poller Runner Controller is a mechanism that is able to concurrently run and
+control a collection of poller runners (see poller.txt for details on how to
+create poller runners).
+
+First, we setup the iterable of poller runners (one of which throws an exception)
+>>> from zope import component
+>>> def my_call_1(stopper):
+...     stopper.wait() #blocks until stopper is triggered
+>>> def my_call_2(stopper):
+...     raise Exception('Test exception')
+>>> my_call_3_counter = 0
+>>> def my_call_3(stopper):
+...     global my_call_3_counter
+...     my_call_3_counter += 1
+>>> s_call_1 = component.createObject(u"sparc.poller.stoppable_call", my_call_1)
+>>> s_call_2 = component.createObject(u"sparc.poller.stoppable_call", my_call_2)
+>>> s_call_3 = component.createObject(u"sparc.poller.stoppable_call", my_call_3)
+>>> poller_1 = component.createObject(u"sparc.poller.poller",
+...              name="test poller 1", stoppable_call=s_call_1)
+>>> poller_2 = component.createObject(u"sparc.poller.poller",
+...              name="test poller 2", stoppable_call=s_call_2)
+>>> poller_3 = component.createObject(u"sparc.poller.poller",
+...              name="test poller 3", stoppable_call=s_call_3)
+
+>>> p_runner_1 = component.createObject(u"sparc.poller.poller_runner",
+...               delay=30, poller=poller_1)
+>>> p_runner_2 = component.createObject(u"sparc.poller.poller_runner",
+...               delay=60, poller=poller_2)
+>>> p_runner_3 = component.createObject(u"sparc.poller.poller_runner",
+...               delay=2, poller=poller_3)
+
+Now, we'll create a controller that does not raise exceptions
+>>> ctlr_1 = component.createObject("sparc.poller.threaded_poller_runner_controller",
+...             name='controller 1')
+>>> str(ctlr_1) == 'controller 1'
+True
+
+At this point, we've not started any runners, so most controller methods don't
+do much.
+
+No pollers in the controller
+>>> [] == list(ctlr_1.pollers())
+True
+
+Operating on a non-started runner doesn't do anything
+>>> ctlr_1.is_active(p_runner_1)
+False
+>>> ctlr_1.stop([p_runner_1])
+>>> [] == list(ctlr_1.pollers())
+True
+>>> ctlr_1.remove([p_runner_1])
+>>> [] == list(ctlr_1.pollers())
+True
+
+Started pollers run in non-blocking threads
+>>> ctlr_1.start([p_runner_1])
+>>> ctlr_1.is_active(p_runner_1)
+True
+>>> set([p_runner_1]) == set(list(ctlr_1.pollers()))
+True
+
+Starting an executing poller doesn't do anything
+>>> ctlr_1.start([p_runner_1])
+>>> ctlr_1.is_active(p_runner_1)
+True
+
+We can stop and restart pollers
+>>> ctlr_1.stop([p_runner_1])
+>>> ctlr_1.is_active(p_runner_1)
+False
+>>> ctlr_1.start([p_runner_1])
+>>> ctlr_1.is_active(p_runner_1)
+True
+>>> ctlr_1.stop([p_runner_1])
+>>> set([p_runner_1]) == set(list(ctlr_1.pollers()))
+True
+
+We can remove pollers, even if they are running
+>>> ctlr_1.start([p_runner_1])
+>>> ctlr_1.is_active(p_runner_1)
+True
+>>> ctlr_1.remove([p_runner_1])
+>>> [] == list(ctlr_1.pollers())
+True
+
+pollers execute their routines on a schedule
+>>> import time
+>>> ctlr_1.start([p_runner_3]) # increments counter each 2 secs
+>>> time.sleep(3)
+>>> ctlr_1.stop([p_runner_3])
+>>> my_call_3_counter
+2
+
+This poller swallows exceptions
+>>> ctlr_1.start([p_runner_2]) #raises, and swallows
+>>> ctlr_1.is_active(p_runner_2) #poller still loops
+True
+>>> ctlr_1.stop([p_runner_2])
+
+We can have our controller raise exceptions.  Please see test_controller.py
+for examples on how to deal with raised exceptions

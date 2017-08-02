@@ -1,0 +1,64 @@
+=====================================
+Sparc Poller Stopper Mechanism
+=====================================
+Poller implementations are typically concurrent (i.e. threaded or multi-process
+based).  Because of this concurrency, special handling is required in order
+to communicate with each execution stream.  Stopper implementations are
+expected to manage this complexity.
+
+Thread Stopper
+-------------------------------------
+This implementation should be used to help control threaded pollers.
+
+Here is some basic methods of the stopper
+>>> from zope import component
+>>> stopper = component.createObject(u"sparc.poller.thread_stopper")
+>>> stopper.is_stopped()
+False
+
+>>> stopper.stop()
+>>> stopper.is_stopped()
+True
+
+>>> stopper.clear()
+>>> stopper.is_stopped()
+False
+
+The final method is wait().  We need to test this within a thread.
+>>> import threading
+>>> t = threading.Thread(target=stopper.wait)
+>>> t.start()
+>>> t.is_alive()
+True
+>>> stopper.stop()
+>>> t.join()
+>>> t.is_alive()
+False
+
+>>> stopper.clear()
+>>> t = threading.Thread(target=stopper.wait, args=(.5,)) #this thread will return after .5 sec
+>>> t.start()
+>>> t.is_alive()
+True
+>>> import time
+>>> time.sleep(1)
+>>> t.is_alive()
+False
+
+Stoppable Calls
+-------------------------------------
+Pollers require the use of callables with a stopping mechanism.  Here's a
+simple example of how to instrument this.
+
+>>> stopper.clear()
+>>> def my_call(stopper):
+...     stopper.wait() #blocks until stopper is triggered
+>>> s_call = component.createObject(u"sparc.poller.stoppable_call", my_call)
+>>> t = threading.Thread(target=s_call, kwargs={'stopper': stopper})
+>>> t.start()
+>>> t.is_alive()
+True
+>>> stopper.stop()
+>>> t.join()
+>>> t.is_alive()
+False

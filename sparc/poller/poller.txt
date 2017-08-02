@@ -1,0 +1,39 @@
+=====================================
+Sparc Poller
+=====================================
+A Sparc poller is a simple mechanism that wraps a stoppable call with a name.
+A poller does not return data, instead it performs some action.
+
+A poller can be created in straight order from a ISparcPollerStoppableCall
+provider.
+
+>>> from zope import component
+>>> def my_call(stopper):
+...     stopper.wait() #blocks until stopper is triggered
+>>> s_call = component.createObject(u"sparc.poller.stoppable_call", my_call)
+>>> poller = component.createObject(u"sparc.poller.poller",
+...              name="test poller", stoppable_call=s_call)
+>>> str(poller) == "test poller"
+True
+
+We can test
+>>> import threading
+>>> stopper = component.createObject(u"sparc.poller.thread_stopper")
+>>> t = threading.Thread(target=poller.run, args=(stopper,))
+>>> t.start()
+>>> t.is_alive()
+True
+>>> stopper.stop()
+>>> t.join()
+>>> t.is_alive()
+False
+
+Poller Runners
+-------------------------------------
+Runners are a thin wrapper around a poller that identifies the interval between
+runs.  They can be created easily from a poller
+
+>>> p_runner = component.createObject(u"sparc.poller.poller_runner",
+...               delay=3600, poller=poller)
+>>> p_runner.delay
+3600

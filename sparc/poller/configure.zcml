@@ -4,14 +4,29 @@
     i18n_domain="sparc.poller">
 
     <utility
-        component=".cancel.ThreadingEventPollerStopperFactory"
-        name="sparc.poller.stopper"
+        component=".stopper.ThreadingEventPollerStopperFactory"
+        name="sparc.poller.thread_stopper"
         />
 
     <utility
-        provides=".ISparcPollerRunner"
-        factory=".runner.SparcThreadedRegisteredPollerRunner"
-        name="sparc.poller.registered_poller_group_runner"
+        component=".stopper.StoppableCallFactory"
+        name="sparc.poller.stoppable_call"
         />
+
+    <utility
+        component=".poller.SparcPollerFactory"
+        name="sparc.poller.poller"
+        />
+
+    <utility
+        component=".poller.SparcPollerRunnerFactory"
+        name="sparc.poller.poller_runner"
+        />
+
+    <utility
+        component=".controller.SparcThreadedPollerRunnerControllerFactory"
+        name="sparc.poller.threaded_poller_runner_controller"
+        />
+
 
 </configure>
